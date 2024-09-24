@@ -12,27 +12,31 @@ import java.util.Set;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static org.example.GeometryUtils.*;
 
 public class TheShapeFixer {
-
-
 
     public boolean isValid(Shape2D shape2D) {
         List<Point2D> points = shape2D.getPoints();
         int n = points.size();
 
-        for (int i = 2; i < n; i++) {
-            Point2D P = points.get(i);
+        if (!points.getFirst().equals(points.get(n - 1))) {
+            return false;
+        }
 
-            if ( (i == n - 1) && P.equals(points.getFirst()) ) {
-                continue;
-            }
+        for (int i = 0; i < n-1; i++) {
+            Point2D A = points.get(i);
+            Point2D B = points.get(i + 1);
 
-            for (int j = 0; j < i - 1; j++) {
-                Point2D A = points.get(j);
-                Point2D B = points.get(j + 1);
+            for (int j = i+2; j < n-1; j++) {
+                if (i == 0 && j == n-2) {
+                    continue;
+                }
 
-                if (isPointOnSegment(A, B, P)) {
+                Point2D C = points.get(j);
+                Point2D D = points.get(j + 1);
+
+                if (segmentsIntersect(A, B, C, D)) {
                     return false;
                 }
             }
@@ -64,7 +68,6 @@ public class TheShapeFixer {
         nextPoint = (currentPoint + 1) % size;
 
         Set<Integer> candidateIndices = new HashSet<>();
-        List<Integer> validIndices = new ArrayList<>();
         Map<Integer, Set<Integer>> internalPointsForAdding = new HashMap<>();
 
         for (int i = 0; i < size; i++) {
@@ -75,6 +78,8 @@ public class TheShapeFixer {
         }
 
         currentPoint = nextPoint;
+        boolean isDiagonalSegmentExist = false;
+
         for (;;) {
             Point2D pointObj = points.get(currentPoint);
             outputHull.add(pointObj);
@@ -88,11 +93,9 @@ public class TheShapeFixer {
                 }
             }
 
-            validIndices.add(nextPoint);
-
             // if next X and Y change at the same time
             if (isDiagonalSegment(pointObj, points.get(nextPoint))) {
-                internalPointsForAdding.put(outputHull.size(), candidateIndices);
+                isDiagonalSegmentExist = true;
             }
 
             currentPoint = nextPoint;
@@ -103,16 +106,33 @@ public class TheShapeFixer {
             }
         }
 
-        internalPointsForAdding.forEach((key, value) -> {
-            validIndices.forEach(value::remove);
-
-            value.forEach(i -> {
+        if (isDiagonalSegmentExist) {
+            candidateIndices.forEach(i -> {
                 Point2D point = points.get(i);
-                if (!outputHull.contains(point)) {
-                    outputHull.add(i+1, point);
+
+                for (int k = 0; k < outputHull.size() - 1; k++) {
+                    Point2D prevPoint = outputHull.get(k);
+                    Point2D nextPoint2 = outputHull.get(k + 1);
+
+                    if (!outputHull.contains(point)) {
+                        if (isPositionValidToInsert(point, prevPoint, nextPoint2)) {
+                            outputHull.add(k + 1, point);
+                            break;
+                        } else {
+                            if (isPointInsideTriangle(prevPoint, nextPoint2, point)) {
+                                if (!isPointCollinearWithAllPairs(point, outputHull)) {
+                                    outputHull.add(k + 1, point);
+                                    break;
+                                } else if (isDiagonalSegment(prevPoint, nextPoint2)) {
+                                    outputHull.add(k + 1, point);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
             });
-        });
+        }
 
         return new Shape2D(outputHull);
     }
@@ -143,8 +163,47 @@ public class TheShapeFixer {
         return collinearityRes > 0 ? 1 : 2;
     }
 
-    private double checkCollinearity(Point2D A, Point2D B, Point2D P) {
-        return (B.getX() - A.getX()) * (P.getY() - A.getY()) -
-               (P.getX() - A.getX()) * (B.getY() - A.getY());
+    private boolean segmentsIntersect(Point2D A, Point2D B, Point2D C, Point2D D) {
+        int o1 = orientation(A, B, C);
+        int o2 = orientation(A, B, D);
+        int o3 = orientation(C, D, A);
+        int o4 = orientation(C, D, B);
+
+        if (o1 != o2 && o3 != o4) {
+            return true;
+        }
+
+        if (o1 == 0 && isPointOnSegment(A, B, C)) return true;
+        if (o2 == 0 && isPointOnSegment(A, B, D)) return true;
+        if (o3 == 0 && isPointOnSegment(C, D, A)) return true;
+        if (o4 == 0 && isPointOnSegment(C, D, B)) return true;
+
+        return false;
+    }
+    private boolean isPositionValidToInsert(Point2D point, Point2D prevPoint, Point2D nextPoint) {
+        int orientationPrev = orientation(prevPoint, point, nextPoint);
+        return orientationPrev != 1;
+    }
+
+    private boolean isPointInsideTriangle(Point2D prevPoint, Point2D nextPoint, Point2D point) {
+        double triangleArea = getTriangleArea(prevPoint, nextPoint, new Point2D.Double(0, 0));
+
+        double area1 = getTriangleArea(point, prevPoint, nextPoint);
+        double area2 = getTriangleArea(point, prevPoint, new Point2D.Double(0, 0));
+        double area3 = getTriangleArea(point, nextPoint, new Point2D.Double(0, 0));
+
+        return (triangleArea == area1 + area2 + area3);
+    }
+
+    private boolean isPointCollinearWithAllPairs(Point2D point, List<Point2D> outputHull) {
+        for (int i = 0; i < outputHull.size(); i++) {
+            Point2D prevPoint = outputHull.get(i);
+            Point2D nextPoint = outputHull.get((i + 1) % outputHull.size());
+
+            if (arePointsCollinear(prevPoint, nextPoint, point)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

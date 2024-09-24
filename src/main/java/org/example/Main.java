@@ -33,7 +33,20 @@ public class Main {
             new Point2D.Double(8.0d, 0.0d)
         );
 
-        Shape2D inputShape = new Shape2D(points2);
+        // taken from review
+        List<Point2D> points3 = List.of(
+            new Point2D.Double(0.0d, 0.0d),
+            new Point2D.Double(2.0d, 0.0d),
+            new Point2D.Double(4.0d, 0.0d),
+            new Point2D.Double(4.0d, 2.0d),
+            new Point2D.Double(2.0d, 2.0d),
+            new Point2D.Double(2.0d, 1.0d),
+            new Point2D.Double(2.0d, 4.0d),
+            new Point2D.Double(0.0d, 4.0d),
+            new Point2D.Double(0.0d, 0.0d)
+        );
+
+        Shape2D inputShape = new Shape2D(points3);
 
         TheShapeFixer shapeFixer = new TheShapeFixer();
         Shape2D outputShape = shapeFixer.isValid(inputShape) ? inputShape : shapeFixer.repair(inputShape);
